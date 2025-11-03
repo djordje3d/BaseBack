@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+from app.database import init_db
 
 from app.routers import router
 from app.services import init_cache
@@ -31,3 +32,11 @@ else:
 def on_startup():
     print("🚀 Startup event triggered")
     # init_cache(app)
+
+
+@app.on_event("startup")  # Dodato za inicijalizaciju baze podataka
+def startup():
+    init_db()
+
+
+# This ensures your tables are created if they don’t exist — useful during development before switching to Alembic migrations.

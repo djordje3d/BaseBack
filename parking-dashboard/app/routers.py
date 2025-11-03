@@ -1,18 +1,16 @@
-from fastapi import APIRouter, Depends
-from fastapi_cache.decorator import cache
+from fastapi import APIRouter
 from datetime import datetime
-from app.VehicleType import VehicleType
 from pydantic import BaseModel
-import random
-
+from app.VehicleType import VehicleType as VehicleTypeEnum
 from app.services import service
+from app.model import VehicleType, Ticket
 
 router = APIRouter()
 
 
 class VehicleEntry(BaseModel):
     registration: str
-    vehicle_type: VehicleType
+    vehicle_type: VehicleTypeEnum
 
 
 @router.post("/vehicles/enter")
@@ -51,31 +49,39 @@ def get_occupancy():
 
 
 @router.get("/vehicles/active")
-# @cache(expire=60)  # Disable caching for real-time data
 def get_active_vehicles():
     tickets = service.get_all_tickets()
-    return [
-        {
-            "type": t.vehicle_type.name,
-            "registration": t.vehicle_registration,
-            "entry_time": t.entry_time.strftime("%Y-%m-%d %H:%M"),
-            "barcode": t.bar_code,
-        }
-        for t in tickets
-    ]
+    result = []
+    for t in tickets:
+        vehicle_type_obj = (
+            service.db.query(VehicleType).filter_by(id=t.vehicle_type_id).first()
+        )
+        result.append(
+            {
+                "type": vehicle_type_obj.type if vehicle_type_obj else "UNKNOWN",
+                "registration": t.vehicle_registration,
+                "entry_time": t.entry_time.strftime("%Y-%m-%d %H:%M"),
+                "barcode": t.bar_code,
+            }
+        )
+    return result
 
 
 @router.get("/revenue/today")
 def get_revenue_today():
     today = datetime.now().date()
-    total = sum(
-        service.calculate_fee(t)
-        for t in service.tickets
-        if t.entry_time.date() == today
+    tickets_today = (
+        service.db.query(Ticket)
+        .filter(
+            Ticket.entry_time >= datetime.combine(today, datetime.min.time()),
+            Ticket.exit_time != None,
+        )
+        .all()
     )
+    total = sum(service.calculate_fee(t) for t in tickets_today)
     return {"total_revenue": total}
 
 
 @router.get("/health")
 def healthcheck():
-    return {"status": "ok", "timestamp": datetime.now().isoformat(), "version": "1.0.0"}
+    return {"status": "ok", "timestamp": datetime.now().isoformat(), "version": "2.0.0"}
