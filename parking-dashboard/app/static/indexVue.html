@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Garage Dashboard (Vue + Tailwind)</title>
+  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans p-6">
+  <div id="app" class="max-w-7xl mx-auto space-y-10">
+    <h1 class="text-4xl font-bold text-center">Garage Dashboard</h1>
+
+    <!-- Grid za Occupancy & Revenue -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div class="bg-white rounded-2xl shadow-md p-6 flex flex-col items-center">
+        <h2 class="text-xl font-semibold mb-4">Occupancy</h2>
+        <canvas ref="occCanvas" class="w-full max-h-[400px]"></canvas>
+      </div>
+      <div class="bg-white rounded-2xl shadow-md p-6 flex flex-col items-center">
+        <h2 class="text-xl font-semibold mb-4">Revenue</h2>
+        <canvas ref="revCanvas" class="w-full max-h-[400px]"></canvas>
+      </div>
+    </div>
+
+    <!-- Vehicle types -->
+    <div class="bg-white rounded-2xl shadow-md p-6">
+      <h2 class="text-xl font-semibold mb-4 text-center">Types Vehicles</h2>
+      <canvas ref="typeCanvas" class="w-full max-h-[400px]"></canvas>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-2xl shadow-md p-6">
+      <h2 class="text-xl font-semibold mb-4 text-center">Active Vehicles</h2>
+      <table class="w-full border-collapse">
+        <thead>
+          <tr class="bg-blue-500 text-white">
+            <th class="py-2 px-4 text-left">Type</th>
+            <th class="py-2 px-4 text-left">Registration</th>
+            <th class="py-2 px-4 text-left">Entry Time</th>
+            <th class="py-2 px-4 text-left">Barcode</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="v in vehicles" :key="v.barcode" class="border-b last:border-0">
+            <td class="py-2 px-4">{{ v.type }}</td>
+            <td class="py-2 px-4">{{ v.registration }}</td>
+            <td class="py-2 px-4">{{ v.entry_time }}</td>
+            <td class="py-2 px-4">{{ v.barcode }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:8000';
+
+    const app = Vue.createApp({
+      data() {
+        return {
+          vehicles: [],
+          charts: {
+            occ: null,
+            rev: null,
+            type: null
+          }
+        };
+      },
+      mounted() {
+        this.loadDashboard();
+        setInterval(() => this.loadDashboard(), 10000);
+      },
+      methods: {
+        async fetchJSON(path) {
+          const res = await fetch(API_BASE + path);
+          return res.ok ? res.json() : {};
+        },
+        async loadDashboard() {
+          const free = await this.fetchJSON('/spaces/free');
+          const occ = await this.fetchJSON('/occupancy');
+          const occupied = occ.capacity - free.free_spaces;
+          this.renderOccupancy(occupied, free.free_spaces);
+
+          const vehicles = await this.fetchJSON('/vehicles/active');
+          this.vehicles = vehicles;
+          this.renderType(vehicles);
+
+          const rev = await this.fetchJSON('/revenue/today');
+          this.renderRevenue(rev.total_revenue || 0);
+        },
+        renderOccupancy(occupied, free) {
+          if (this.charts.occ) this.charts.occ.destroy();
+          this.charts.occ = new Chart(this.$refs.occCanvas, {
+            type: 'doughnut',
+            data: {
+              labels: ['Occupied', 'Free'],
+              datasets: [{ data: [occupied, free], backgroundColor: ['#f44336', '#4caf50'] }]
+            }
+          });
+        },
+        renderRevenue(amount) {
+          if (this.charts.rev) this.charts.rev.destroy();
+          this.charts.rev = new Chart(this.$refs.revCanvas, {
+            type: 'bar',
+            data: {
+              labels: ['Today'],
+              datasets: [{ label: 'RSD', data: [amount], backgroundColor: '#ff9800' }]
+            },
+            options: { scales: { y: { beginAtZero: true } } }
+          });
+        },
+        renderType(list) {
+          if (this.charts.type) this.charts.type.destroy();
+          const counts = list.reduce((acc, v) => {
+            acc[v.type] = (acc[v.type] || 0) + 1;
+            return acc;
+          }, {});
+          this.charts.type = new Chart(this.$refs.typeCanvas, {
+            type: 'bar',
+            data: {
+              labels: Object.keys(counts),
+              datasets: [{ label: 'Count', data: Object.values(counts), backgroundColor: '#2196f3' }]
+            },
+            options: { scales: { y: { beginAtZero: true } } }
+          });
+        }
+      }
+    });
+
+    app.mount('#app');
+  </script>
+</body>
+</html>

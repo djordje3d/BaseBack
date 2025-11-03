@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Parking Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h2>Occupancy</h2>
+  <canvas id="occupancyChart" width="400" height="200"></canvas>
+
+  <h2>Revenue Today</h2>
+  <div id="revenueDisplay"></div>
+
+  <script>
+    async function loadOccupancy() {
+      const res = await fetch("/occupancy");
+      const data = await res.json();
+      const ctx = document.getElementById("occupancyChart").getContext("2d");
+
+      new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels: ["Occupied", "Free"],
+          datasets: [{
+            data: [data.percent, 100 - data.percent],
+            backgroundColor: ["#ff6384", "#36a2eb"]
+          }]
+        }
+      });
+    }
+
+    async function loadRevenue() {
+      const res = await fetch("/revenue/today");
+      const data = await res.json();
+      document.getElementById("revenueDisplay").innerText = `Total: ${data.total_revenue} RSD`;
+    }
+
+    loadOccupancy();
+    loadRevenue();
+  </script>
+</body>
+</html>

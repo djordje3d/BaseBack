@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Garage Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js">
+    </script>
+<style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        h1, h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        canvas {
+            background: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 50%;
+            margin: 0 auto 40px auto; /* centrirano i ispod grafikona */
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            font-weight: 600;
+        }
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+        th {
+            background: #2196f3;
+            color: white;
+            font-weight: 700;
+        }
+
+        #occupancyChart, #revenueChart {
+            max-width: 500px;
+            max-height: 500px;
+            margin: 0 auto;
+        }
+
+        #typeChart {
+            display: block;
+            max-width: 900px;
+            max-height: 500px;
+            margin: 0 auto 40px auto; /* centriran + razmak ispod */
+        }
+
+        .chart-box {
+    background: #fff;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+}
+
+.chart-box h2 {
+    margin-bottom: 10px;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.chart-box canvas {
+    width: 100%;
+    max-height: 500px;
+}
+
+    </style>
+</head>
+<body>
+    <h1>Garage Dashboard</h1>
+
+    <div class="grid">
+    <div>
+        <h2>Occupancy</h2>
+        <canvas id="occupancyChart"></canvas>
+    </div>
+    <div>
+        <h2>Revenue</h2>
+        <canvas id="revenueChart"></canvas>
+    </div>
+    </div>
+
+    <h2>Types Vehicles</h2>
+    <canvas id="typeChart"></canvas>
+
+    <h2>Active Vehicles</h2>
+    <table id="vehiclesTable">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Registration</th>
+                <th>Entry Time</th>
+                <th>Barcode</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Popuniće se iz JS-a -->
+        </tbody>
+    </table>
+
+    <script>
+        Chart.defaults.font.size = 20;
+        Chart.defaults.font.weight = '600';
+
+        const API_BASE = 'http://127.0.0.1:8000';
+
+        let occupancyChart, typeChart, revenueChart; // globalne reference
+
+        async function fetchJSON(path) { // funkcija za GET zahteve
+            const res = await fetch(API_BASE + path);
+            return res.ok ? res.json() : {};
+        }
+
+        async function loadDashboard() { // glavna funkcija za učitavanje podataka
+            // 1) Occupancy
+            const freeData = await fetchJSON('/spaces/free');
+            const occData = await fetchJSON('/occupancy');
+            const occupied = occData.capacity - freeData.free_spaces;
+            renderOccupancyChart(occupied, freeData.free_spaces);
+
+            // 2) Vehicles
+            const vehicles = await fetchJSON('/vehicles/active');
+            renderVehiclesTable(vehicles); // popunjavanje tabele
+            renderTypeChart(vehicles); // grafikon po tipu vozila
+
+            // 3) Revenue
+            const revData = await fetchJSON('/revenue/today'); 
+            renderRevenueChart(revData.total_revenue || 0); // grafikon prihoda
+        }
+
+        function renderOccupancyChart(occupied, free) {
+            if (occupancyChart) occupancyChart.destroy();  // uništavamo prethodni grafikon ako postoji
+            occupancyChart = new Chart(
+                document.getElementById('occupancyChart'),
+                {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Occupied', 'Free'],
+                        datasets: [{
+                            data: [occupied, free],
+                            backgroundColor: ['#f44336', '#4caf50']
+                        }]
+                    },
+                    options: { responsive: true }
+                }
+            );
+        }
+
+        function renderVehiclesTable(list) {
+            const tbody = document.querySelector('#vehiclesTable tbody');
+            tbody.innerHTML = '';
+            list.forEach(v => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${v.type}</td>
+                    <td>${v.registration}</td>
+                    <td>${v.entry_time}</td>
+                    <td>${v.barcode}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderTypeChart(list) {
+            if (typeChart && typeof typeChart.destroy === "function") {
+                typeChart.destroy();
+            }
+            const counts = list.reduce((acc, v) => {  // count by type
+                acc[v.type] = (acc[v.type] || 0) + 1;
+                return acc;
+            }, {});
+            const types = Object.keys(counts);
+            const data = Object.values(counts);
+
+            typeChart = new Chart(
+                document.getElementById('typeChart'),
+                {
+                    type: 'bar',
+                    data: {
+                        labels: types,
+                        datasets: [{ label: 'Count', data, backgroundColor: '#2196f3' }]
+                    },
+                    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+                }
+            );
+        }
+
+        function renderRevenueChart(amount) {
+            if (revenueChart && typeof revenueChart.destroy === "function") {
+                revenueChart.destroy();
+            }
+            revenueChart = new Chart(
+                document.getElementById('revenueChart'),
+                {
+                    type: 'bar',
+                    data: {
+                        labels: ['Today'],
+                        datasets: [{
+                            label: 'RSD',
+                            data: [amount],
+                            backgroundColor: '#ff9800'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: v => v.toLocaleString('sr-RS') + ' RSD'
+                                }
+                            }
+                        }
+                    }
+                }
+            );
+        }
+
+        loadDashboard();
+        
+        // Auto-refresh svakih 10 sekundi
+        setInterval(() => {
+            location.reload();
+                }, 10000);
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+fastapi-cache2
+requests
+aiofiles
