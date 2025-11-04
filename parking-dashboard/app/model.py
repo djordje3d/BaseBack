@@ -29,6 +29,9 @@ class Ticket(Base):
     bar_code = Column(String, unique=True, nullable=False)
     fee = Column(Numeric, nullable=True)
 
+    # Nova kolona
+    status = Column(String, nullable=True)  # npr. 'ACTIVE', 'PAID', 'EXPIRED'
+
     # Relationship to VehicleType
     vehicle_type = relationship("VehicleType", back_populates="tickets")
 
