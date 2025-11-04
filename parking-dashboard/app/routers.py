@@ -15,7 +15,11 @@ class VehicleEntry(BaseModel):
 
 @router.post("/vehicles/enter")
 def enter_vehicle(data: VehicleEntry):
-    ticket = service.enter_vehicle(data.registration, data.vehicle_type)
+    try:
+        ticket = service.enter_vehicle(data.registration, data.vehicle_type)
+    except ValueError as e:
+        return {"error": str(e)}
+    
     return {
         "message": "Vehicle entered",
         "barcode": ticket.bar_code,
@@ -36,8 +40,13 @@ def exit_vehicle(barcode: str):
     }
 
 
+# @router.get("/spaces/free")
+# def get_free_spaces():
+#     return {"free_spaces": service.get_free_spaces()}
+
+
 @router.get("/spaces/free")
-def get_free_spaces():
+def get_free_spaces() -> dict:  # dict za bolju dokumentaciju OpenAPI - tip povratne vrednosti - JSON objekat - ???
     return {"free_spaces": service.get_free_spaces()}
 
 
@@ -49,7 +58,7 @@ def get_occupancy():
 
 
 @router.get("/vehicles/active")
-def get_active_vehicles():
+def get_active_vehicles():  # Tipovi vozila sa aktivnim kartama u parkingu iz baze
     tickets = service.get_all_tickets()
     result = []
     for t in tickets:

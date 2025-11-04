@@ -28,7 +28,7 @@ else:
 # Inicijalizacija keša pri pokretanju
 
 
-@app.on_event("startup")
+@app.on_event("startup")  # Dodato za inicijalizaciju keša
 def on_startup():
     print("🚀 Startup event triggered")
     # init_cache(app)
