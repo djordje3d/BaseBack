@@ -40,3 +40,4 @@ def startup():
 
 
 # This ensures your tables are created if they don’t exist — useful during development before switching to Alembic migrations.
+# It means “When the FastAPI app starts, automatically create database tables based on my models — only if they don’t exist yet.”

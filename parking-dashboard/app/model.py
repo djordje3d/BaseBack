@@ -1,44 +1,68 @@
-from sqlalchemy import Column, String, DateTime, Numeric, Integer, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship, declarative_base
-import uuid
+from typing import Optional
 import datetime
+import decimal
+import uuid
 
-Base = declarative_base()
-
-
-class VehicleType(Base):
-    __tablename__ = "vehicle_types"
-
-    id = Column(Integer, primary_key=True)
-    type = Column(String, unique=True, nullable=False)  # e.g. 'CAR', 'BUS', 'TRUCK'
-    rate = Column(Numeric, nullable=False)
-
-    # Reverse relationship: one vehicle type → many tickets
-    tickets = relationship("Ticket", back_populates="vehicle_type")
+from sqlalchemy import DateTime, ForeignKeyConstraint, Integer, Numeric, PrimaryKeyConstraint, String, UniqueConstraint, Uuid
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
-class Ticket(Base):
-    __tablename__ = "tickets"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    vehicle_registration = Column(String, nullable=False)
-    vehicle_type_id = Column(Integer, ForeignKey("vehicle_types.id"), nullable=False)
-    entry_time = Column(DateTime, default=datetime.datetime.utcnow)
-    exit_time = Column(DateTime, nullable=True)
-    bar_code = Column(String, unique=True, nullable=False)
-    fee = Column(Numeric, nullable=True)
-
-    # Nova kolona
-    status = Column(String, nullable=True)  # npr. 'ACTIVE', 'PAID', 'EXPIRED'
-
-    # Relationship to VehicleType
-    vehicle_type = relationship("VehicleType", back_populates="tickets")
+class Base(DeclarativeBase):
+    pass
 
 
 class ParkingConfig(Base):
-    __tablename__ = "parking_config"
+    __tablename__ = 'parking_config'
+    __table_args__ = (
+        PrimaryKeyConstraint('id', name='parking_config_pkey'),
+    )
 
-    id = Column(Integer, primary_key=True)
-    capacity = Column(Integer, nullable=False)
-    default_rate = Column(Numeric, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    capacity: Mapped[int] = mapped_column(Integer, nullable=False)
+    default_rate: Mapped[decimal.Decimal] = mapped_column(Numeric, nullable=False)
+
+
+class Probnatabela(Base):
+    __tablename__ = 'probnatabela'
+    __table_args__ = (
+        PrimaryKeyConstraint('id', name='probnatabela_pkey'),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    naziv: Mapped[Optional[str]] = mapped_column(String(30))
+
+
+class VehicleTypes(Base):
+    __tablename__ = 'vehicle_types'
+    __table_args__ = (
+        PrimaryKeyConstraint('id', name='vehicle_types_pkey'),
+        UniqueConstraint('type', name='vehicle_types_type_key')
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    type: Mapped[str] = mapped_column(String, nullable=False)
+    rate: Mapped[decimal.Decimal] = mapped_column(Numeric, nullable=False)
+
+    # Reverse relationship: one vehicle type → many tickets
+    tickets: Mapped[list['Tickets']] = relationship('Tickets', back_populates='vehicle_type')
+
+
+class Tickets(Base):
+    __tablename__ = 'tickets'
+    __table_args__ = (
+        ForeignKeyConstraint(['vehicle_type_id'], ['vehicle_types.id'], name='tickets_vehicle_type_id_fkey'),
+        PrimaryKeyConstraint('id', name='tickets_pkey'),
+        UniqueConstraint('bar_code', name='tickets_bar_code_key')
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    vehicle_registration: Mapped[str] = mapped_column(String, nullable=False)
+    vehicle_type_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    bar_code: Mapped[str] = mapped_column(String, nullable=False)
+    entry_time: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    exit_time: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    fee: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric)
+    status: Mapped[Optional[str]] = mapped_column(String)  # npr. 'ACTIVE', 'PAID', 'EXPIRED'
+
+    # Relationship to VehicleType: many tickets → one vehicle type
+    vehicle_type: Mapped['VehicleTypes'] = relationship('VehicleTypes', back_populates='tickets')

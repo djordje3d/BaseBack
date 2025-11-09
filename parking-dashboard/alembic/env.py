@@ -23,6 +23,9 @@ if config.config_file_name is not None:
 from app.model import Base  # putanja do tvog models.py
 target_metadata = Base.metadata
 
+print("📦 Alembic vidi sledeće tabele:")
+print(Base.metadata.tables.keys())
+
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")

@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.models import Base
+from app.model import Base
 
 # Replace with your actual PostgreSQL credentials
 DATABASE_URL = "postgresql+psycopg2://postgres:your_password@localhost:5432/garage"

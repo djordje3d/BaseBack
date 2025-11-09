@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import Ticket, VehicleType, ParkingConfig
+from app.model import Ticket, VehicleType, ParkingConfig
 from app.VehicleType import VehicleType as VehicleTypeEnum
 
 import datetime
